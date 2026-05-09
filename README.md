@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# 🚀 Mini Jira - System Zarządzania Projektami
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Profesjonalna aplikacja typu **Project Management System** (inspirowana Jira/Trello), zbudowana w architekturze Monorepo. Projekt zrealizowany jako zadanie rekrutacyjne (Etap 1, 2 i 3).
 
-Currently, two official plugins are available:
+## 🛠️ Stack Technologiczny
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Frontend
+- **React** + **Vite** + **TypeScript**
+- **React Router** (nawigacja i ochrona tras)
+- **Axios** (komunikacja z API + Interceptory dla Auth)
+- **Vanilla CSS** (Custom Design System, Dark Mode vibes)
 
-## React Compiler
+### Backend
+- **Node.js** + **Express** + **TypeScript**
+- **Layered Architecture** (Routes -> Controllers -> Services -> Repositories)
+- **CORS** & **Environment Variables** (dotenv)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Database & Security
+- **Supabase** (PostgreSQL)
+- **Supabase Auth** (JWT Authentication)
+- **RLS (Row Level Security)** – pełna izolacja danych użytkowników na poziomie bazy danych.
 
-## Expanding the ESLint configuration
+## ✨ Kluczowe Funkcjonalności
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- 🔐 **Pełna Autoryzacja:** Rejestracja, logowanie i wylogowanie z sesją.
+- 📂 **Zarządzanie Projektami (CRUD):** Tworzenie, wyświetlanie, edycja i usuwanie projektów.
+- 📋 **Tablica Kanban:** Dynamiczne zarządzanie zadaniami w 3 kolumnach (To Do, In Progress, Done).
+- ⚙️ **Szczegóły Zadań:** Tytuł, Opis, Priorytet (Low/Medium/High), Osoba przypisana oraz Termin (Deadline).
+- 🛡️ **Bezpieczeństwo:** 
+  - Walidacja terminów (blokada dat wstecznych).
+  - Ochrona tras frontendu (tylko dla zalogowanych).
+  - Middleware autoryzacyjny na backendzie weryfikujący tokeny JWT.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🚀 Szybki Start (Local Setup)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. Klonowanie i Instalacja
+```bash
+git clone <url-twojego-repo>
+cd Wmedia_zadanie_praktyki
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Konfiguracja Środowiska
+Utwórz plik `.env` w folderze `/server` oraz odpowiedni plik konfiguracyjny w `/client` (zgodnie z `.env.example`).
+Wymagane klucze: `SUPABASE_URL` oraz `SUPABASE_ANON_KEY`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 3. Konfiguracja Bazy Danych
+Wykonaj skrypt SQL znajdujący się w pliku `update_tasks.sql` (lub `supabase_setup.sql`) w panelu **SQL Editor** na platformie Supabase, aby utworzyć tabele i polityki RLS.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 4. Uruchomienie Aplikacji
+Dzięki strukturze Monorepo, obie części (klient i serwer) uruchomisz jedną komendą z głównego folderu:
+```bash
+npm run dev
 ```
+
+## 📂 Struktura Projektu
+- `/client` - Aplikacja React (Vite)
+- `/server` - API Express (Node.js)
+- `/server/src/middlewares` - Logika bezpieczeństwa i weryfikacja tokenów
+- `/server/src/repositories` - Bezpośrednia komunikacja z bazą danych
+
+---
+*Projekt przygotowany z dbałością o czystość kodu i bezpieczeństwo danych.*
