@@ -5,7 +5,12 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProjectsPage from './pages/ProjectsPage';
 import KanbanPage from './pages/KanbanPage';
+import TeamsPage from './pages/TeamsPage';
+import DashboardPage from './pages/DashboardPage';
 import Navbar from './components/Navbar';
+import { SocketProvider } from './context/SocketContext';
+import { Toaster } from 'react-hot-toast';
+import ChatSidebar from './components/ChatSidebar';
 
 function App() {
   // TU TRZYMAMY INFORMACJĘ, CZY KTOŚ JEST ZALOGOWANY (SESJA)
@@ -32,23 +37,29 @@ function App() {
   if (loading) return <div className="container">Ładowanie...</div>;
 
   return (
-    <BrowserRouter>
-      {/* TU POKAZUJEMY NAWIGACJĘ TYLKO WTEDY, GDY KTOŚ JEST ZALOGOWANY */}
-      {session && <Navbar />}
-      
-      <Routes>
-        {/* TRASY PUBLICZNE: JEŚLI JESTEŚ ZALOGOWANY, PRZEKIERUJEMY CIĘ DO PROJEKTÓW */}
-        <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/projects" />} />
-        <Route path="/register" element={!session ? <RegisterPage /> : <Navigate to="/projects" />} />
+    <SocketProvider userId={session?.user?.id}>
+      <BrowserRouter>
+        <Toaster />
+        {/* TU POKAZUJEMY NAWIGACJĘ I CZAT TYLKO WTEDY, GDY KTOŚ JEST ZALOGOWANY */}
+        {session && <Navbar />}
+        {session && <ChatSidebar />}
+        
+        <Routes>
+          {/* TRASY PUBLICZNE */}
+          <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/projects" />} />
+          <Route path="/register" element={!session ? <RegisterPage /> : <Navigate to="/projects" />} />
 
-        {/* TRASY CHRONIONE: JEŚLI NIE JESTEŚ ZALOGOWANY, PRZEKIERUJEMY CIĘ DO LOGOWANIA */}
-        <Route path="/projects" element={session ? <ProjectsPage /> : <Navigate to="/login" />} />
-        <Route path="/projects/:projectId" element={session ? <KanbanPage /> : <Navigate to="/login" />} />
+          {/* TRASY CHRONIONE */}
+          <Route path="/projects" element={session ? <ProjectsPage /> : <Navigate to="/login" />} />
+          <Route path="/projects/:projectId" element={session ? <KanbanPage /> : <Navigate to="/login" />} />
+          <Route path="/teams" element={session ? <TeamsPage /> : <Navigate to="/login" />} />
+          <Route path="/dashboard" element={session ? <DashboardPage /> : <Navigate to="/login" />} />
 
-        {/* DOMYŚLNE PRZEKIEROWANIE: JEŚLI WPISZESZ ZŁY ADRES, TRAFISZ TAM, GDZIE POWINIENEŚ */}
-        <Route path="/" element={<Navigate to={session ? "/projects" : "/login"} />} />
-      </Routes>
-    </BrowserRouter>
+          {/* DOMYŚLNE PRZEKIEROWANIE */}
+          <Route path="/" element={<Navigate to={session ? "/projects" : "/login"} />} />
+        </Routes>
+      </BrowserRouter>
+    </SocketProvider>
   );
 }
 

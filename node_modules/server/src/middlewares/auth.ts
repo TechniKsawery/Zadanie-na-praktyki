@@ -38,11 +38,21 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    // TU ZAPISUJEMY DANE UŻYTKOWNIKA I JEGO POŁĄCZENIE DO OBIEKTU "req", ŻEBY INNE PLIKI MIAŁY DO NICH DOSTĘP
+    // TU ZAPISUJEMY DANE UŻYTKOWNIKA I JEGO POŁĄCZENIE DO OBIEKTU "req"
     (req as any).user = user;
     (req as any).supabase = userClient;
+
+    // ETAP 4: POBIERAMY ROLĘ UŻYTKOWNIKA Z TABELI PROFILES
+    const { data: profile } = await userClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
     
-    // TU MÓWIMY SERWEROWI: "WSZYSTKO OK, MOŻESZ IŚĆ DALEJ DO KONTROLERA"
+    if (profile) {
+      (req as any).user.role = profile.role;
+    }
+    
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Błąd autoryzacji' });

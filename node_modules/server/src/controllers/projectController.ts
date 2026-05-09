@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ProjectService } from '../services/projectService';
+import { ActivityService } from '../services/activityService';
 
 // TU TWORZYMY INSTANCJĘ SERWISU, KTÓRY WYKONA DLA NAS BRUDNĄ ROBOTĘ (LOGIKĘ)
 const projectService = new ProjectService();
@@ -34,6 +35,9 @@ export class ProjectController {
       // TU PRZEKAZUJEMY DANE DO SERWISU, ŻEBY STWORZYŁ WPIS W BAZIE
       const newProject = await projectService.createNewProject(supabase, name, description, userId);
       
+      // LOGUJEMY AKTYWNOŚĆ (ETAP 4)
+      await ActivityService.log(supabase, userId, `utworzył projekt: ${name}`, newProject.id);
+
       // TU POTWIERDZAMY FRONTENDOWI, ŻE SIĘ UDAŁO (STATUS 201 - CREATED)
       res.status(201).json(newProject);
     } catch (err: any) {
@@ -67,11 +71,15 @@ export class ProjectController {
   // TU OBSŁUGUJEMY USUWANIEM PROJEKTU
   async delete(req: Request, res: Response) {
     try {
+      const userId = (req as any).user.id;
       const supabase = (req as any).supabase;
       
       // TU MÓWIMY SERWISOWI, KTÓRE ID PROJEKTU MA USUNĄĆ
       await projectService.deleteProject(supabase, req.params.id as string);
       
+      // LOGUJEMY AKTYWNOŚĆ (ETAP 4)
+      await ActivityService.log(supabase, userId, `usunął projekt o ID: ${req.params.id}`);
+
       res.json({ message: 'Projekt usunięty' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

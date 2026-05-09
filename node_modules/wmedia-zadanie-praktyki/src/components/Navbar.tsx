@@ -1,7 +1,9 @@
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import { LogOut, FolderKanban, Users, LayoutDashboard } from 'lucide-react';
 
-export default function Navbar() {
+const Navbar: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -10,22 +12,26 @@ export default function Navbar() {
   };
 
   return (
-    <nav style={{ 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      padding: '1rem 2rem',
-      background: 'var(--card-bg)',
-      backdropFilter: 'blur(10px)',
-      boxShadow: 'var(--shadow)',
-      marginBottom: '2rem'
-    }}>
-      <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary)' }}>
-        🚀 Mini Jira
+    <nav className="navbar fade-in">
+      <div className="navbar-brand">
+        <FolderKanban className="logo-icon" />
+        <span>Mini Jira <strong>SaaS</strong></span>
       </div>
-      <button onClick={handleLogout} className="btn btn-secondary" style={{ fontSize: '0.9rem' }}>
-        Wyloguj się
-      </button>
+      
+      <div className="navbar-links">
+        <Link to="/projects" className="nav-link">Projekty</Link>
+        <Link to="/teams" className="nav-link">Zespoły</Link>
+        <Link to="/dashboard" className="nav-link">Dashboard</Link>
+      </div>
+
+      <div className="navbar-actions">
+        <button onClick={handleLogout} className="btn-logout">
+          <LogOut size={18} />
+          <span>Wyloguj</span>
+        </button>
+      </div>
     </nav>
   );
-}
+};
+
+export default Navbar;

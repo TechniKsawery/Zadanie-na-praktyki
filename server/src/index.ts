@@ -1,47 +1,65 @@
 import dotenv from 'dotenv';
-// TU WCZYTUJEMY PLIK .ENV NA SAMYM POCZĄTKU, ŻEBY SERWER ZNAŁ KLUCZE DO BAZY DANYCH
 dotenv.config(); 
 
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import projectRoutes from './routes/projectRoutes';
 import taskRoutes from './routes/taskRoutes';
+import teamRoutes from './routes/teamRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
 const app = express();
+const httpServer = createServer(app); // TWORZYMY SERWER HTTP DLA SOCKET.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*', // W produkcji ustaw konkretny adres frontendu
+    methods: ['GET', 'POST']
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 
-// --- MIDDLEWARES (WARSTWY POŚREDNIE) ---
-
-// TU POZWALAMY FRONTENDOWI ROZMAWIAĆ Z BACKENDEM (WSZYSTKIE METODY)
+// --- MIDDLEWARES ---
 app.use(cors({
-  origin: '*', 
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-})); 
+}));
+app.use(express.json());
 
-// TU MÓWIMY SERWEROWI, ŻEBY AUTOMATYCZNIE ROZPOZNAWAŁ DANE W FORMACIE JSON
-app.use(express.json()); 
+import { registerChatHandlers } from './socketHandlers/chatHandler';
 
-// TU LOGUJEMY KAŻDE ZAPYTANIE, ŻEBYŚMY WIDZIELI W KONSOLI, CO ROBI UŻYTKOWNIK
+// --- SOCKET.IO LOGIC ---
+io.on('connection', (socket) => {
+  console.log(`Użytkownik połączony: ${socket.id}`);
+
+  // Rejestrujemy handlery dla czatu
+  registerChatHandlers(io, socket);
+
+  socket.on('disconnect', () => {
+    console.log(`Użytkownik rozłączony: ${socket.id}`);
+  });
+});
+
+// PRZEKAZUJEMY 'io' DO REQUESTA, ŻEBYŚMY MOGLI WYSYŁAĆ NOTYFIKACJE Z KONTROLERÓW
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
+  (req as any).io = io;
   next();
 });
 
-// --- TRASY (ROUTES) ---
-
-// TU PODPINAMY WSZYSTKIE ŚCIEŻKI DOTYCZĄCE PROJEKTÓW POD ADRES /api/projects
+// --- TRASY ---
 app.use('/api/projects', projectRoutes);
-
-// TU PODPINAMY WSZYSTKIE ŚCIEŻKI DOTYCZĄCE ZADAŃ POD ADRES /api/tasks
 app.use('/api/tasks', taskRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/upload', uploadRoutes);
 
-// TU ROBIMY PROSTY TEST, ŻEBY SPRAWDZIĆ CZY SERWER W OGÓLE ŻYJE
 app.get('/', (req, res) => {
-  res.send('API Mini Jira działa!');
+  res.send('API Mini Jira SaaS (Etap 4) działa!');
 });
 
-// TU ODPALAMY NASZĄ MASZYNĘ I CZEKAMY NA POŁĄCZENIA
-app.listen(PORT, () => {
-  console.log(`Serwer działa na http://localhost:${PORT}`);
+// WAŻNE: ODPALAMY httpServer ZAMIAST app
+httpServer.listen(PORT, () => {
+  console.log(`Serwer SaaS działa na http://localhost:${PORT}`);
 });
