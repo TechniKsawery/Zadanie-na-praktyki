@@ -38,7 +38,7 @@ export class TeamController {
       const { teamId } = req.params;
       const supabase = (req as any).supabase;
 
-      const member = await teamService.inviteMember(supabase, teamId, email);
+      const member = await teamService.inviteMember(supabase, teamId as string, email);
       res.json({ message: 'Użytkownik zaproszony pomyślnie', member });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -51,7 +51,7 @@ export class TeamController {
       const { teamId } = req.params;
       const supabase = (req as any).supabase;
 
-      const details = await teamService.getTeamDetails(supabase, teamId);
+      const details = await teamService.getTeamDetails(supabase, teamId as string);
       res.json(details);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

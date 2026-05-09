@@ -40,17 +40,18 @@ export const projectService = {
 
 // --- SERWIS ZADAŃ ---
 export const taskService = {
-  // TU POBIERAMY ZADANIA DLA KONKRETNEGO PROJEKTU
   getTasks: (projectId: string) => api.get(`/projects/${projectId}/tasks`).then(res => res.data),
-  
-  // TU DODAJEMY NOWE ZADANIE DO PROJEKTU
   createTask: (projectId: string, data: any) => api.post(`/projects/${projectId}/tasks`, data).then(res => res.data),
-  
-  // TU ZMIENIAMY STATUS LUB TREŚĆ ZADANIA
   updateTask: (taskId: string, data: any) => api.patch(`/tasks/${taskId}`, data).then(res => res.data),
-  
-  // TU USUWAMY ZADANIE
   deleteTask: (taskId: string) => api.delete(`/tasks/${taskId}`).then(res => res.data),
+};
+
+// --- SERWIS ZESPOŁÓW (ETAP 4) ---
+export const teamService = {
+  getTeams: () => api.get('/teams').then(res => res.data),
+  createTeam: (data: { name: string }) => api.post('/teams', data).then(res => res.data),
+  inviteMember: (teamId: string, email: string) => api.post(`/teams/${teamId}/invite`, { email }).then(res => res.data),
+  getMembers: (teamId: string) => api.get(`/teams/${teamId}/members`).then(res => res.data),
 };
 
 export default api;

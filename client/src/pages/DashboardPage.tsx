@@ -1,69 +1,88 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { LayoutDashboard, CheckCircle, Clock, List } from 'lucide-react';
-import axios from 'axios';
+import { projectService, taskService } from '../services/apiService';
 import toast from 'react-hot-toast';
 
 const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any[]>([]);
-  const [totalTasks, setTotalTasks] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({ total: 0, inProgress: 0, done: 0 });
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const loadRealData = async () => {
       try {
-        // TU SYMULUJEMY POBIERANIE DANYCH DO WYKRESU
-        // W prawdziwej aplikacji pobralibyśmy to z dedykowanego endpointu /api/stats
+        const projects = await projectService.getProjects();
+        
+        // POBIERAMY ZADANIA DLA WSZYSTKICH PROJEKTÓW RÓWNOLEGLE (SZYBCIEJ I BEZPIECZNIEJ)
+        const allTasksResults = await Promise.all(
+          projects.map((p: any) => taskService.getTasks(p.id).catch(() => []))
+        );
+        
+        let allTasks: any[] = [];
+        allTasksResults.forEach(tasks => {
+          allTasks = [...allTasks, ...tasks];
+        });
+
+        const todo = allTasks.filter(t => t.status === 'todo').length;
+        const inProgress = allTasks.filter(t => t.status === 'in_progress').length;
+        const done = allTasks.filter(t => t.status === 'done').length;
+
         const data = [
-          { name: 'Do zrobienia', value: 12, color: '#6b7280' },
-          { name: 'W trakcie', value: 7, color: '#4f46e5' },
-          { name: 'Zrobione', value: 15, color: '#10b981' },
+          { name: 'Do zrobienia', value: todo, color: '#64748b' },
+          { name: 'W trakcie', value: inProgress, color: '#4f46e5' },
+          { name: 'Zrobione', value: done, color: '#10b981' },
         ];
+
         setStats(data);
-        setTotalTasks(data.reduce((acc, item) => acc + item.value, 0));
+        setSummary({ total: allTasks.length, inProgress, done });
       } catch (err) {
-        toast.error('Błąd ładowania statystyk');
+        console.error(err);
+        toast.error('Błąd ładowania danych Dashboardu');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchStats();
+    loadRealData();
   }, []);
+
+  if (loading) return <div className="container">Obliczanie statystyk...</div>;
 
   return (
     <div className="container fade-in">
       <h2 className="flex items-center gap-2 mb-8">
-        <LayoutDashboard className="text-primary" /> Dashboard Projektu
+        <LayoutDashboard className="text-primary" /> Dashboard Twoich Projektów
       </h2>
 
-      {/* KARTY PODSUMOWANIA */}
       <div className="stats-grid">
         <div className="stat-card card">
           <List className="text-muted" />
           <div>
             <span className="label">Wszystkie Zadania</span>
-            <span className="value">{totalTasks}</span>
+            <span className="value">{summary.total}</span>
           </div>
         </div>
         <div className="stat-card card">
           <Clock className="text-primary" />
           <div>
             <span className="label">W realizacji</span>
-            <span className="value">7</span>
+            <span className="value">{summary.inProgress}</span>
           </div>
         </div>
         <div className="stat-card card">
           <CheckCircle className="text-success" />
           <div>
             <span className="label">Zakończone</span>
-            <span className="value">15</span>
+            <span className="value">{summary.done}</span>
           </div>
         </div>
       </div>
 
-      {/* WYKRESY */}
       <div className="charts-container mt-12">
         <div className="chart-box card">
-          <h3>Statusy Zadań (Wykres słupkowy)</h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
+          <h3>Statusy Zadań (Realne dane)</h3>
+          <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={stats}>
                 <XAxis dataKey="name" />
                 <YAxis />
@@ -79,9 +98,9 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <div className="chart-box card">
-          <h3>Rozkład pracy</h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
+          <h3>Rozkład statusów (%)</h3>
+          <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie 
                   data={stats} 

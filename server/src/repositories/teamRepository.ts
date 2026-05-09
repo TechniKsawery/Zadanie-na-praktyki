@@ -1,36 +1,36 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../config/supabase';
 
 export class TeamRepository {
-  private supabase: SupabaseClient;
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
-  }
-
-  // TWORZENIE ZESPOŁU
+  // TWORZENIE ZESPOŁU (używamy admin client - pomija RLS)
   async create(name: string, ownerId: string) {
-    // 1. Dodajemy zespół
-    const { data: team, error: teamError } = await this.supabase
+    const { data: team, error: teamError } = await supabaseAdmin
       .from('teams')
       .insert([{ name, owner_id: ownerId }])
       .select()
       .single();
 
-    if (teamError) throw teamError;
+    if (teamError) {
+      console.error('Błąd tworzenia zespołu:', teamError);
+      throw new Error(teamError.message);
+    }
 
-    // 2. Automatycznie dodajemy twórcę jako członka (admina zespołu)
-    const { error: memberError } = await this.supabase
+    // Automatycznie dodajemy twórcę jako właściciela
+    const { error: memberError } = await supabaseAdmin
       .from('team_members')
       .insert([{ team_id: team.id, user_id: ownerId, role_in_team: 'owner' }]);
 
-    if (memberError) throw memberError;
+    if (memberError) {
+      console.error('Błąd dodawania właściciela:', memberError);
+      // Nie przerywamy — zespół już istnieje
+    }
 
     return team;
   }
 
   // POBIERANIE ZESPOŁÓW UŻYTKOWNIKA
   async getUserTeams(userId: string) {
-    const { data, error } = await this.supabase
+    const { data, error } = await supabaseAdmin
       .from('team_members')
       .select(`
         team_id,
@@ -38,33 +38,42 @@ export class TeamRepository {
       `)
       .eq('user_id', userId);
 
-    if (error) throw error;
-    return data.map((item: any) => item.teams);
+    if (error) {
+      console.error('Błąd pobierania zespołów:', error);
+      throw new Error(error.message);
+    }
+    return (data || []).map((item: any) => item.teams).filter(Boolean);
   }
 
   // DODAWANIE CZŁONKA DO ZESPOŁU
   async addMember(teamId: string, userId: string, role: string = 'member') {
-    const { data, error } = await this.supabase
+    const { data, error } = await supabaseAdmin
       .from('team_members')
       .insert([{ team_id: teamId, user_id: userId, role_in_team: role }])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Błąd dodawania członka:', error);
+      throw new Error(error.message);
+    }
     return data;
   }
 
   // POBIERANIE CZŁONKÓW ZESPOŁU
   async getMembers(teamId: string) {
-    const { data, error } = await this.supabase
+    const { data, error } = await supabaseAdmin
       .from('team_members')
       .select(`
         role_in_team,
-        profiles:user_id ( id, email, full_name, avatar_url )
+        user_id
       `)
       .eq('team_id', teamId);
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('Błąd pobierania członków:', error);
+      throw new Error(error.message);
+    }
+    return data || [];
   }
 }

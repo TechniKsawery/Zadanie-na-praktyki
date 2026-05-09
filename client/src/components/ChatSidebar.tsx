@@ -11,10 +11,13 @@ const ChatSidebar: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setCurrentUser(user));
+    const initChat = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    initChat();
 
     if (socket) {
-      // SŁUCHANIE NOWYCH WIADOMOŚCI
       socket.on('new_message', (msg) => {
         setChatHistory((prev) => [...prev, msg]);
       });
@@ -28,12 +31,15 @@ const ChatSidebar: React.FC = () => {
   const sendMessage = async () => {
     if (!message.trim() || !socket) return;
 
+    // POBIERAMY AKTUALNĄ SESJĘ DLA TOKENA
     const { data: { session } } = await supabase.auth.getSession();
     
+    if (!session) return;
+
     socket.emit('send_message', {
-      token: session?.access_token,
+      token: session.access_token,
       content: message,
-      teamId: 'global' // Na razie uproszczony czat globalny dla testów
+      teamId: 'global' // Testowy czat globalny
     });
 
     setMessage('');
@@ -52,9 +58,10 @@ const ChatSidebar: React.FC = () => {
           </div>
           
           <div className="chat-messages">
+            {chatHistory.length === 0 && <p className="text-muted" style={{textAlign: 'center', marginTop: '20px'}}>Brak wiadomości. Przywitaj się!</p>}
             {chatHistory.map((msg, i) => (
               <div key={i} className={`message ${msg.sender_id === currentUser?.id ? 'own' : ''}`}>
-                <span className="sender">{msg.sender_email}</span>
+                <span className="sender">{msg.sender_email || 'Użytkownik'}</span>
                 <p>{msg.content}</p>
               </div>
             ))}
@@ -66,7 +73,7 @@ const ChatSidebar: React.FC = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Napisz wiadomość..."
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             />
             <button onClick={sendMessage}><Send size={18} /></button>
           </div>

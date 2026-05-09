@@ -1,38 +1,33 @@
-import { SupabaseClient } from '@supabase/supabase-js';
 import { TeamRepository } from '../repositories/teamRepository';
+import { supabaseAdmin } from '../config/supabase';
 
 export class TeamService {
-  async createTeam(supabase: SupabaseClient, name: string, ownerId: string) {
-    const teamRepo = new TeamRepository(supabase);
-    return await teamRepo.create(name, ownerId);
+  private teamRepo = new TeamRepository();
+
+  async createTeam(_supabase: any, name: string, ownerId: string) {
+    return await this.teamRepo.create(name, ownerId);
   }
 
-  async getMyTeams(supabase: SupabaseClient, userId: string) {
-    const teamRepo = new TeamRepository(supabase);
-    return await teamRepo.getUserTeams(userId);
+  async getMyTeams(_supabase: any, userId: string) {
+    return await this.teamRepo.getUserTeams(userId);
   }
 
-  async inviteMember(supabase: SupabaseClient, teamId: string, userEmail: string) {
-    const teamRepo = new TeamRepository(supabase);
-    
-    // 1. Szukamy użytkownika po emailu w profilach
-    const { data: profile, error: searchError } = await supabase
+  async inviteMember(_supabase: any, teamId: string, userEmail: string) {
+    // Szukamy profilu po emailu (profiles musi mieć kolumnę email)
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('email', userEmail)
-      .single();
+      .maybeSingle();
 
-    if (searchError || !profile) {
-      throw new Error('Nie znaleziono użytkownika o podanym adresie email.');
-    }
+    if (error) throw new Error('Błąd wyszukiwania: ' + error.message);
+    if (!profile) throw new Error('Nie znaleziono użytkownika o podanym adresie email.');
 
-    // 2. Dodajemy go do zespołu
-    return await teamRepo.addMember(teamId, profile.id);
+    return await this.teamRepo.addMember(teamId, profile.id);
   }
 
-  async getTeamDetails(supabase: SupabaseClient, teamId: string) {
-    const teamRepo = new TeamRepository(supabase);
-    const members = await teamRepo.getMembers(teamId);
+  async getTeamDetails(_supabase: any, teamId: string) {
+    const members = await this.teamRepo.getMembers(teamId);
     return { members };
   }
 }
