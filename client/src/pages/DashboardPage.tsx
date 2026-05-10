@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { LayoutDashboard, CheckCircle, Clock, List } from 'lucide-react';
-import { projectService, taskService } from '../services/apiService';
+import { projectService, taskService, activityService } from '../services/apiService';
 import toast from 'react-hot-toast';
 
 const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState<any[]>([]);
   const [summary, setSummary] = useState({ total: 0, inProgress: 0, done: 0 });
 
   useEffect(() => {
@@ -36,6 +37,10 @@ const DashboardPage: React.FC = () => {
 
         setStats(data);
         setSummary({ total: allTasks.length, inProgress, done });
+
+        // Pobieramy historię aktywności
+        const history = await activityService.getHistory();
+        setActivities(history.slice(0, 10)); // Pokazujemy 10 ostatnich
       } catch (err) {
         console.error(err);
         toast.error('Błąd ładowania danych Dashboardu');
@@ -120,6 +125,23 @@ const DashboardPage: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      <div className="activity-section card mt-12">
+        <h3>Ostatnia aktywność (Historia)</h3>
+        <div className="activity-list">
+          {activities.length === 0 && <p className="text-muted">Brak zarejestrowanej aktywności.</p>}
+          {activities.map((act, i) => (
+            <div key={i} className="activity-item py-3 border-b last:border-0">
+              <span className="font-bold">{act.profiles?.email || 'System'}</span>
+              <span className="mx-2">—</span>
+              <span>{act.action}</span>
+              <div className="text-sm text-muted">
+                {new Date(act.created_at).toLocaleString()}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

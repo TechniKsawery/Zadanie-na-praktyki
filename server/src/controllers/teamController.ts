@@ -12,6 +12,11 @@ export class TeamController {
       const supabase = (req as any).supabase;
 
       const team = await teamService.createTeam(supabase, name, userId);
+      
+      // LOGUJEMY AKTYWNOŚĆ (ETAP 4)
+      const { ActivityService } = await import('../services/activityService');
+      await ActivityService.log(supabase, userId, `stworzył zespół: ${name}`, team.id);
+
       res.status(201).json(team);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -39,6 +44,12 @@ export class TeamController {
       const supabase = (req as any).supabase;
 
       const member = await teamService.inviteMember(supabase, teamId as string, email);
+
+      // LOGUJEMY AKTYWNOŚĆ (ETAP 4)
+      const userId = (req as any).user.id;
+      const { ActivityService } = await import('../services/activityService');
+      await ActivityService.log(supabase, userId, `zaprosił użytkownika ${email} do zespołu`, teamId as string);
+
       res.json({ message: 'Użytkownik zaproszony pomyślnie', member });
     } catch (err: any) {
       res.status(400).json({ error: err.message });

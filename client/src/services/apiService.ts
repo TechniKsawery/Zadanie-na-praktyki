@@ -54,4 +54,18 @@ export const teamService = {
   getMembers: (teamId: string) => api.get(`/teams/${teamId}/members`).then(res => res.data),
 };
 
+export const userService = {
+  getUsers: async () => {
+    const response = await api.get('/users');
+    return response.data;
+  }
+};
+
+export const activityService = {
+  getHistory: async () => {
+    const response = await api.get('/activity');
+    return response.data;
+  }
+};
+
 export default api;
