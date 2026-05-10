@@ -54,6 +54,17 @@ export const teamService = {
   getMembers: (teamId: string) => api.get(`/teams/${teamId}/members`).then(res => res.data),
 };
 
+export const uploadService = {
+  uploadFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  }
+};
+
 export const userService = {
   getUsers: async () => {
     const response = await api.get('/users');

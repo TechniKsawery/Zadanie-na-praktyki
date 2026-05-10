@@ -20,16 +20,32 @@ export class ActivityService {
 
   // POBIERANIE HISTORII
   async getHistory(supabase: SupabaseClient) {
-    const { data, error } = await supabase
-      .from('activities')
-      .select(`
-        *,
-        profiles:user_id ( email, full_name )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    try {
+      // Pobieramy aktywności
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+
+      // Pobieramy emaile użytkowników osobno (bezpieczniejszy join manualny)
+      const userIds = Array.from(new Set(data.map(a => a.user_id)));
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+
+      const historyWithProfiles = data.map(act => ({
+        ...act,
+        profiles: profiles?.find(p => p.id === act.user_id) || { email: 'System' }
+      }));
+
+      return historyWithProfiles;
+    } catch (err) {
+      console.error('Błąd pobierania historii:', err);
+      return [];
+    }
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { taskService, projectService } from '../services/apiService';
+import { taskService, projectService, uploadService } from '../services/apiService';
+import { Paperclip } from 'lucide-react';
 
 export default function KanbanPage() {
   const { projectId } = useParams();
@@ -88,6 +89,18 @@ export default function KanbanPage() {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await uploadService.uploadFile(file);
+      alert(`Plik ${data.fileName} wgrany pomyślnie!`);
+    } catch (err) {
+      alert("Błąd wgrywania pliku");
+    }
+  };
+
   if (loading) return <div className="container">Ładowanie...</div>;
 
   const todoTasks = tasks.filter(t => t.status === 'todo');
@@ -166,6 +179,12 @@ export default function KanbanPage() {
                 <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   {col.prevStatus && <button onClick={() => updateStatus(t.id, col.prevStatus!)} className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '4px 8px' }}>{col.prevLabel}</button>}
                   {col.nextStatus && <button onClick={() => updateStatus(t.id, col.nextStatus!)} className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '4px 8px' }}>{col.nextLabel}</button>}
+                  
+                  <label className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Paperclip size={12} /> Załącz
+                    <input type="file" hidden onChange={handleFileUpload} />
+                  </label>
+
                   <button onClick={() => deleteTask(t.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}>Usuń</button>
                 </div>
               </div>
