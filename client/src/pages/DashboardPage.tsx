@@ -14,10 +14,12 @@ const DashboardPage: React.FC = () => {
     const loadRealData = async () => {
       try {
         const projects = await projectService.getProjects();
+        // Filtrujemy ukryty projekt z logami
+        const filteredProjects = projects.filter((p: any) => p.id !== '00000000-0000-0000-0000-000000000000');
         
         // POBIERAMY ZADANIA DLA WSZYSTKICH PROJEKTÓW RÓWNOLEGLE (SZYBCIEJ I BEZPIECZNIEJ)
         const allTasksResults = await Promise.all(
-          projects.map((p: any) => taskService.getTasks(p.id).catch(() => []))
+          filteredProjects.map((p: any) => taskService.getTasks(p.id).catch(() => []))
         );
         
         let allTasks: any[] = [];

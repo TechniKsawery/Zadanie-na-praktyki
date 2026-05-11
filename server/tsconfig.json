@@ -9,6 +9,7 @@
     "strict": true,
     "skipLibCheck": true,
     "moduleResolution": "node",
+    "ignoreDeprecations": "5.0",
     "resolveJsonModule": true
   },
   "include": ["src/**/*"],

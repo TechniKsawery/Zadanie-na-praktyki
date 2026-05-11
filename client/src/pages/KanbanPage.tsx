@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { taskService, projectService, uploadService } from '../services/apiService';
-import { Paperclip } from 'lucide-react';
+import { taskService, projectService, uploadService, commentService } from '../services/apiService';
+import { Paperclip, MessageSquare, Trash2, Send } from 'lucide-react';
 
 export default function KanbanPage() {
   const { projectId } = useParams();
@@ -16,6 +16,11 @@ export default function KanbanPage() {
   const [newTaskAssigned, setNewTaskAssigned] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskDeadline, setNewTaskDeadline] = useState('');
+
+  // Komentarze
+  const [activeCommentsTaskId, setActiveCommentsTaskId] = useState<string | null>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
 
   // TU POBIERAMY DZISIEJSZĄ DATĘ W FORMACIE RRRR-MM-DD
   const today = new Date().toISOString().split('T')[0];
@@ -44,7 +49,6 @@ export default function KanbanPage() {
     e.preventDefault();
     if (!projectId || !newTaskTitle.trim()) return;
 
-    // --- WALIDACJA DATY ---
     if (newTaskDeadline && newTaskDeadline < today) {
       alert("Termin nie może być datą z przeszłości!");
       return;
@@ -89,15 +93,52 @@ export default function KanbanPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (taskId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       const data = await uploadService.uploadFile(file);
-      alert(`Plik ${data.fileName} wgrany pomyślnie!`);
+      // Pobieramy aktualne zadanie
+      const task = tasks.find(t => t.id === taskId);
+      const newDesc = `${task?.description || ''}\n\n📎 [${file.name}](${data.url})`.trim();
+      
+      await taskService.updateTask(taskId, { description: newDesc });
+      toast.success(`Plik ${file.name} dodany do zadania!`);
+      loadData();
     } catch (err) {
-      alert("Błąd wgrywania pliku");
+      toast.error("Błąd wgrywania pliku");
+    }
+  };
+
+  const toggleComments = async (taskId: string) => {
+    if (activeCommentsTaskId === taskId) {
+      setActiveCommentsTaskId(null);
+      setComments([]);
+    } else {
+      setActiveCommentsTaskId(taskId);
+      setComments([]); // Czyścimy stare komentarze
+      try {
+        const data = await commentService.getComments(taskId);
+        setComments(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Błąd ładowania komentarzy", err);
+        setComments([]);
+      }
+    }
+  };
+
+  const handleAddComment = async (taskId: string) => {
+    if (!newComment.trim()) return;
+    try {
+      await commentService.addComment(taskId, newComment);
+      setNewComment('');
+      const data = await commentService.getComments(taskId);
+      setComments(Array.isArray(data) ? data : []);
+      toast.success('Komentarz dodany!');
+    } catch (err: any) {
+      console.error("Błąd dodawania komentarza", err);
+      toast.error('Błąd: ' + (err.response?.data?.error || 'Tabela comments może nie istnieć'));
     }
   };
 
@@ -130,7 +171,7 @@ export default function KanbanPage() {
               value={newTaskDescription} 
               onChange={e => setNewTaskDescription(e.target.value)} 
               placeholder="Dokładny opis zadania..." 
-              style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--primary)', background: 'var(--bg-alt)', color: 'var(--text)' }}
+              className="custom-textarea"
             />
           </div>
           <div className="input-group">
@@ -140,9 +181,9 @@ export default function KanbanPage() {
           <div className="input-group">
             <label>Priorytet</label>
             <select value={newTaskPriority} onChange={e => setNewTaskPriority(e.target.value)}>
-              <option value="low">Niski (Low)</option>
-              <option value="medium">Średni (Medium)</option>
-              <option value="high">Wysoki (High)</option>
+              <option value="low">Niski</option>
+              <option value="medium">Średni</option>
+              <option value="high">Wysoki</option>
             </select>
           </div>
           <div className="input-group">
@@ -150,7 +191,7 @@ export default function KanbanPage() {
             <input 
               type="date" 
               value={newTaskDeadline} 
-              min={today} // TU BLOKUJEMY WYBÓR DATY Z PRZESZŁOŚCI W KALENDARZU
+              min={today} 
               onChange={e => setNewTaskDeadline(e.target.value)} 
             />
           </div>
@@ -158,35 +199,66 @@ export default function KanbanPage() {
         </form>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="kanban-board">
         {[
           { title: '📌 Do zrobienia', tasks: todoTasks, nextStatus: 'in_progress', nextLabel: '👉 Rozpocznij' },
           { title: '⏳ W trakcie', tasks: inProgressTasks, nextStatus: 'done', nextLabel: '✔️ Zakończ', prevStatus: 'todo', prevLabel: '← Cofnij' },
           { title: '✅ Zrobione', tasks: doneTasks, prevStatus: 'in_progress', prevLabel: '← Wróć' }
         ].map(col => (
           <div key={col.title} className="kanban-column">
-            <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>{col.title}</h2>
+            <h2 className="column-title">{col.title}</h2>
             {col.tasks.map(t => (
-              <div key={t.id} className="card" style={{ marginBottom: '1rem', padding: '1rem', borderLeft: t.priority === 'high' ? '5px solid var(--error)' : 'none' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+              <div key={t.id} className={`task-card card ${t.priority}`}>
+                <div className="task-header">
                   <h4>{t.title}</h4>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-alt)', textTransform: 'uppercase' }}>{t.priority}</span>
+                  <span className={`priority-badge ${t.priority}`}>{t.priority}</span>
                 </div>
-                {t.description && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>{t.description}</p>}
-                {t.assigned_to_name && <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.5rem' }}>👤 {t.assigned_to_name}</p>}
-                {t.deadline && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📅 {new Date(t.deadline).toLocaleDateString()}</p>}
+                {t.description && <p className="task-desc">{t.description}</p>}
+                {t.assigned_to_name && <p className="task-assignee">👤 {t.assigned_to_name}</p>}
+                {t.deadline && <p className="task-deadline">📅 {new Date(t.deadline).toLocaleDateString()}</p>}
                 
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {col.prevStatus && <button onClick={() => updateStatus(t.id, col.prevStatus!)} className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '4px 8px' }}>{col.prevLabel}</button>}
-                  {col.nextStatus && <button onClick={() => updateStatus(t.id, col.nextStatus!)} className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '4px 8px' }}>{col.nextLabel}</button>}
+                <div className="task-actions">
+                  {col.prevStatus && <button onClick={() => updateStatus(t.id, col.prevStatus!)} className="btn-mini">{col.prevLabel}</button>}
+                  {col.nextStatus && <button onClick={() => updateStatus(t.id, col.nextStatus!)} className="btn-mini btn-primary-mini">{col.nextLabel}</button>}
                   
-                  <label className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Paperclip size={12} /> Załącz
-                    <input type="file" hidden onChange={handleFileUpload} />
+                  <label className="btn-mini btn-icon" title="Załącz plik">
+                    <Paperclip size={14} />
+                    <input type="file" hidden onChange={(e) => handleFileUpload(t.id, e)} />
                   </label>
 
-                  <button onClick={() => deleteTask(t.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}>Usuń</button>
+                  <button onClick={() => toggleComments(t.id)} className="btn-mini btn-icon" title="Komentarze">
+                    <MessageSquare size={14} />
+                  </button>
+
+                  <button onClick={() => deleteTask(t.id)} className="btn-mini btn-icon text-error" title="Usuń">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
+
+                {/* SEKCJA KOMENTARZY */}
+                {activeCommentsTaskId === t.id && (
+                  <div className="comments-section fade-in">
+                    <hr />
+                    <div className="comments-list">
+                      {comments.map((c, i) => (
+                        <div key={i} className="comment-item">
+                          <span className="comment-user">{c.profiles?.email.split('@')[0]}:</span>
+                          <span className="comment-content">{c.content}</span>
+                        </div>
+                      ))}
+                      {comments.length === 0 && <p className="no-comments">Brak komentarzy.</p>}
+                    </div>
+                    <div className="comment-input-wrapper">
+                      <input 
+                        value={newComment} 
+                        onChange={e => setNewComment(e.target.value)} 
+                        placeholder="Napisz komentarz..."
+                        onKeyDown={e => e.key === 'Enter' && handleAddComment(t.id)}
+                      />
+                      <button onClick={() => handleAddComment(t.id)}><Send size={14} /></button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -1,6 +1,9 @@
 import { Server, Socket } from 'socket.io';
 import { supabaseAdmin } from '../config/supabase';
 
+// PRZECHOWUJEMY ZALOGOWANYCH UŻYTKOWNIKÓW W PAMIĘCI (ID -> STATUS)
+const onlineUsers = new Set<string>();
+
 export const registerChatHandlers = (io: Server, socket: Socket) => {
   
   // DOŁĄCZANIE DO POKOJU ZESPOŁU
@@ -29,15 +32,12 @@ export const registerChatHandlers = (io: Server, socket: Socket) => {
       };
 
       if (data.teamId && data.teamId !== 'global') {
-        // Wiadomość do pokoju zespołu
         io.to(`team_${data.teamId}`).emit('new_message', messagePayload);
-      } else {
-        // Wiadomość globalna — broadcast do wszystkich
+      } else if (!data.receiverId) {
         io.emit('new_message', messagePayload);
       }
 
       if (data.receiverId) {
-        // Wiadomość prywatna
         io.to(`user_${data.receiverId}`).emit('new_private_message', messagePayload);
       }
 
@@ -46,9 +46,29 @@ export const registerChatHandlers = (io: Server, socket: Socket) => {
     }
   });
 
-  // IDENTYFIKACJA UŻYTKOWNIKA (dla powiadomień prywatnych)
+  // IDENTYFIKACJA UŻYTKOWNIKA (status online)
   socket.on('identify', (userId: string) => {
+    if (!userId) return;
     socket.join(`user_${userId}`);
-    console.log(`Użytkownik ${userId} zidentyfikowany na sockecie ${socket.id}`);
+    (socket as any).userId = userId;
+    onlineUsers.add(userId);
+    
+    // Rozsyłamy informację o nowym statusie
+    io.emit('user_status_change', { userId, status: 'online' });
+    
+    // Wysyłamy aktualną listę online do nowego użytkownika
+    socket.emit('online_users_list', Array.from(onlineUsers));
+    
+    console.log(`Użytkownik ${userId} jest ONLINE`);
+  });
+
+  // ROZŁĄCZENIE
+  socket.on('disconnect', () => {
+    const userId = (socket as any).userId;
+    if (userId) {
+      onlineUsers.delete(userId);
+      io.emit('user_status_change', { userId, status: 'offline' });
+      console.log(`Użytkownik ${userId} jest OFFLINE`);
+    }
   });
 };

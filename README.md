@@ -1,50 +1,55 @@
-# 🚀 Mini Jira SaaS - System Zarządzania Zespołem (Etap 4)
+# 🚀 Mini Jira SaaS - Profesjonalny System Zarządzania Zespołem
 
-Profesjonalna platforma SaaS do zarządzania projektami, zespołami oraz komunikacją w czasie rzeczywistym. Projekt spełnia wszystkie wymagania Etapu 4 zadania rekrutacyjnego.
+Projekt rekrutacyjny (Etap 4) spełniający 100% wymagań obowiązkowych oraz wszystkie wymagania dodatkowe.
 
-## 🛠️ Stack Technologiczny (Etap 4)
+## 🛠️ Stack Technologiczny
+- **Frontend:** React + TypeScript + Recharts + Lucide Icons
+- **Backend:** Node.js + Express + TypeScript + Socket.IO + Multer
+- **Baza danych:** Supabase (PostgreSQL) + Row Level Security (RLS)
+- **Infrastruktura:** Docker, Docker Compose, GitHub Actions (CI)
 
-- **Frontend:** React + TypeScript + **Recharts** (Wykresy) + **Socket.IO Client**
-- **Backend:** Node.js + Express + TypeScript + **Socket.IO Server** + **Multer**
-- **Database:** Supabase (PostgreSQL) + **Supabase Storage** (Pliki)
-- **Security:** **Zod** (Walidacja), JWT, RBAC (Role-Based Access Control)
+## ✨ Kluczowe Funkcjonalności (Etap 4)
+- 💬 **Real-time Chat:** System wiadomości ogólnych oraz prywatnych (DM).
+- 🟢 **Online Status:** Śledzenie statusu dostępności użytkowników na żywo.
+- 👥 **Team Management:** Tworzenie zespołów, zapraszanie członków i role zespołowe.
+- 📊 **Analytics Dashboard:** Interaktywne wykresy statusów zadań i projektów.
+- 📁 **File Management:** Przesyłanie załączników do zadań.
+- 💬 **Task Comments:** Możliwość komentowania poszczególnych zadań.
+- 📜 **Activity History:** Pełna ścieżka audytu działań użytkowników.
+- 🌙 **Dark Mode:** Nowoczesny interfejs z obsługą motywu ciemnego.
 
-## ✨ Nowe Funkcjonalności (Etap 4)
+## 📂 Architektura Projektu
+Zastosowano profesjonalną strukturę warstwową (Layered Architecture):
 
-- 💬 **Real-time Chat:** Czat zespołowy i wiadomości prywatne działające w czasie rzeczywistym.
-- 👥 **Zarządzanie Zespołami:** Tworzenie zespołów, zapraszanie członków i przypisywanie ról.
-- 📊 **Dashboard Analityczny:** Wizualizacja danych o projektach za pomocą interaktywnych wykresów.
-- 📁 **File Management:** Przesyłanie załączników do zadań i projektów.
-- 📜 **Activity Feed:** Pełna historia działań użytkowników w systemie.
-- 🔔 **Live Notifications:** Powiadomienia toast o ważnych zdarzeniach na żywo.
+### Backend (`/server`):
+- **Routes:** Definicje endpointów REST API.
+- **Controllers:** Obsługa żądań HTTP i orkiestracja logiki.
+- **Services:** Warstwa logiki biznesowej (Activity, Storage, Teams).
+- **Repositories:** Bezpośrednia komunikacja z bazą danych (Supabase).
+- **Middlewares:** Autoryzacja (JWT), sprawdzanie ról (RBAC), walidacja.
+- **Validators:** Schematy walidacji danych (Zod).
+- **Socket Handlers:** Logika WebSocketów odizolowana od warstwy REST.
+
+### Frontend (`/client`):
+- **Pages:** Widoki główne aplikacji.
+- **Components:** Reużywalne elementy UI.
+- **Layouts:** Szablony stron (MainLayout).
+- **Hooks:** Własne hooki Reactowe (useSocket).
+- **Context:** Zarządzanie stanem globalnym (Socket, Auth).
+- **Services:** Komunikacja z API (Axios).
 
 ## 🚀 Instalacja i Uruchomienie
 
-### 1. Wymagania
-- Node.js (v18+)
-- Konto Supabase
+### Opcja 1: Docker (Zalecane)
+1. Skopiuj `.env.example` do `/server/.env` i uzupełnij klucze Supabase.
+2. Uruchom: `docker-compose up --build`
 
-### 2. Instalacja
-```bash
-npm install
-npm run dev
-```
+### Opcja 2: Lokalnie
+1. Zainstaluj zależności w obu folderach: `npm install`
+2. Uruchom serwer i klient: `npm run dev`
 
-### 3. Zmienne Środowiskowe (.env)
-Skopiuj `.env.example` do folderu `/server` i uzupełnij:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `PORT=5000`
-
-### 4. Konfiguracja Bazy Danych
-Wykonaj skrypt SQL `setup_etap4.sql` w panelu Supabase, aby utworzyć tabele: `profiles`, `teams`, `messages`, `activities`, `notifications`.
-
-## 📂 Architektura Projektu (Etap 4)
-Zastosowano profesjonalną strukturę warstwową:
-- **Validators:** Walidacja danych wejściowych za pomocą Zod.
-- **Socket Handlers:** Logika WebSocketów odizolowana od REST API.
-- **Services:** Logika biznesowa (Activity, Storage, Teams).
-- **Context/Hooks:** Zarządzanie stanem globalnym (Socket, Auth).
+### Konfiguracja Bazy Danych
+Wykonaj skrypt `setup_final.sql` w edytorze SQL Supabase, aby przygotować strukturę tabel i polityki bezpieczeństwa (RLS).
 
 ---
-*Projekt przygotowany przez TechniKsawery jako rozwiązanie zadania rekrutacyjnego.*
+*Projekt przygotowany przez TechniKsawery zgodnie z wytycznymi zadania rekrutacyjnego.*

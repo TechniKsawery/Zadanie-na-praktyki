@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { MessageSquare, Send, X, Users, Globe } from 'lucide-react';
+import { MessageSquare, Send, X, Users, Globe, Circle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { userService } from '../services/apiService';
 
@@ -14,6 +14,7 @@ const ChatSidebar: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   useEffect(() => {
     const initChat = async () => {
@@ -35,11 +36,24 @@ const ChatSidebar: React.FC = () => {
       socket.on('new_private_message', (msg) => {
         setPrivateHistory((prev) => [...prev, msg]);
       });
+
+      socket.on('online_users_list', (users: string[]) => {
+        setOnlineUsers(users);
+      });
+
+      socket.on('user_status_change', ({ userId, status }: { userId: string, status: 'online' | 'offline' }) => {
+        setOnlineUsers(prev => {
+          if (status === 'online') return Array.from(new Set([...prev, userId]));
+          return prev.filter(id => id !== userId);
+        });
+      });
     }
 
     return () => {
       socket?.off('new_message');
       socket?.off('new_private_message');
+      socket?.off('online_users_list');
+      socket?.off('user_status_change');
     };
   }, [socket]);
 
@@ -56,7 +70,6 @@ const ChatSidebar: React.FC = () => {
 
     if (selectedUser) {
       payload.receiverId = selectedUser.id;
-      // Lokalnie dodajemy do widoku, żeby widzieć swoją wiadomość od razu
       setPrivateHistory(prev => [...prev, {
         sender_id: currentUser.id,
         sender_email: currentUser.email,
@@ -79,60 +92,75 @@ const ChatSidebar: React.FC = () => {
 
   return (
     <div className={`chat-sidebar ${isOpen ? 'open' : ''}`}>
-      <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)}>
+      <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)} title="Otwórz czat">
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
 
       {isOpen && (
         <div className="chat-window">
-          <div className="chat-header flex justify-between items-center p-4 border-b">
-            <h3 className="text-lg font-bold">
-              {selectedUser ? `DM: ${selectedUser.email}` : 'Czat Ogólny'}
+          <div className="chat-header flex justify-between items-center p-4">
+            <h3 className="text-lg font-bold" style={{ margin: 0 }}>
+              {selectedUser ? `DM: ${selectedUser.email.split('@')[0]}` : 'Czat Ogólny'}
             </h3>
             <div className="flex gap-2">
               <button 
                 onClick={() => { setSelectedUser(null); setActiveTab('global'); }}
-                className={`p-1 rounded ${activeTab === 'global' ? 'bg-indigo-100 text-indigo-600' : ''}`}
+                className={`btn-mini ${activeTab === 'global' ? 'btn-primary-mini' : ''}`}
                 title="Czat Ogólny"
+                style={{ padding: '5px' }}
               >
-                <Globe size={20} />
+                <Globe size={18} />
               </button>
               <button 
                 onClick={() => setActiveTab('users')}
-                className={`p-1 rounded ${activeTab === 'users' ? 'bg-indigo-100 text-indigo-600' : ''}`}
+                className={`btn-mini ${activeTab === 'users' ? 'btn-primary-mini' : ''}`}
                 title="Prywatne Wiadomości"
+                style={{ padding: '5px' }}
               >
-                <Users size={20} />
+                <Users size={18} />
               </button>
             </div>
           </div>
           
-          <div className="chat-content flex-grow overflow-hidden flex flex-col">
+          <div className="chat-content">
             {activeTab === 'users' && !selectedUser ? (
-              <div className="user-list overflow-y-auto p-2">
-                <p className="text-xs text-muted mb-2 px-2 uppercase">Wybierz użytkownika:</p>
-                {allUsers.map(user => (
-                  <button 
-                    key={user.id}
-                    onClick={() => { setSelectedUser(user); setActiveTab('users'); }}
-                    className="w-full text-left p-2 hover:bg-gray-50 rounded flex items-center gap-2 mb-1"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs">
-                      {user.email[0].toUpperCase()}
-                    </div>
-                    <span className="text-sm truncate">{user.email}</span>
-                  </button>
-                ))}
+              <div className="user-list overflow-y-auto p-2 flex-grow">
+                <p className="text-xs text-muted mb-2 px-2 uppercase font-bold">Użytkownicy:</p>
+                {allUsers.length === 0 && <p className="text-xs text-center p-4">Brak innych użytkowników</p>}
+                {allUsers.map(user => {
+                  const isOnline = onlineUsers.includes(user.id);
+                  return (
+                    <button 
+                      key={user.id}
+                      onClick={() => { setSelectedUser(user); setActiveTab('users'); }}
+                      className="w-full text-left p-2 hover:bg-gray-50 rounded flex items-center justify-between mb-1"
+                      style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold">
+                          {user.email[0].toUpperCase()}
+                        </div>
+                        <span className="text-sm truncate" style={{ color: 'var(--text-main)' }}>{user.email}</span>
+                      </div>
+                      <Circle size={10} fill={isOnline ? "#10b981" : "transparent"} color={isOnline ? "#10b981" : "#cbd5e1"} />
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <div className="chat-messages flex-grow overflow-y-auto p-4">
+              <div className="chat-messages p-4">
+                {(selectedUser ? filteredPrivateMessages : chatHistory).length === 0 && (
+                  <p className="text-xs text-center text-muted mt-4">Brak wiadomości. Przywitaj się!</p>
+                )}
                 {(selectedUser ? filteredPrivateMessages : chatHistory).map((msg, i) => (
-                  <div key={i} className={`message mb-4 ${msg.sender_id === currentUser?.id ? 'text-right' : 'text-left'}`}>
-                    <div className={`inline-block p-2 rounded-lg text-sm ${
+                  <div key={i} className={`message ${msg.sender_id === currentUser?.id ? 'text-right' : 'text-left'}`}>
+                    <div className={`message-bubble text-sm ${
                       msg.sender_id === currentUser?.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {!selectedUser && <div className="text-[10px] opacity-75 mb-1">{msg.sender_email}</div>}
-                      <p>{msg.content}</p>
+                      {!selectedUser && msg.sender_id !== currentUser?.id && (
+                        <div className="text-xs font-bold opacity-75 mb-1">{msg.sender_email?.split('@')[0]}</div>
+                      )}
+                      <p style={{ margin: 0 }}>{msg.content}</p>
                     </div>
                   </div>
                 ))}
@@ -146,13 +174,14 @@ const ChatSidebar: React.FC = () => {
                 type="text" 
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={selectedUser ? "Napisz wiadomość prywatną..." : "Napisz na czacie ogólnym..."}
-                className="flex-grow p-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder={selectedUser ? "Prywatna..." : "Wiadomość..."}
+                className="flex-grow p-2 border rounded text-sm outline-none focus:ring-2"
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
               />
               <button 
                 onClick={sendMessage}
-                className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                className="btn btn-primary"
+                style={{ padding: '8px', borderRadius: '8px' }}
               >
                 <Send size={18} />
               </button>

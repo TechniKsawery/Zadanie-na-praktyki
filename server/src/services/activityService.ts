@@ -1,15 +1,21 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../config/supabase';
+
+const SYSTEM_LOG_PROJECT_ID = '00000000-0000-0000-0000-000000000000';
 
 export class ActivityService {
-  // LOGOWANIE AKTYWNOŚCI
-  static async log(supabase: SupabaseClient, userId: string, action: string, targetId?: string) {
+  // LOGOWANIE AKTYWNOŚCI (Hack: używamy tabeli tasks jako logu)
+  static async log(_ignored: any, userId: string, action: string, targetId?: string) {
     try {
-      const { error } = await supabase
-        .from('activities')
+      const { error } = await supabaseAdmin
+        .from('tasks')
         .insert([{
-          user_id: userId,
-          action: action,
-          target_id: targetId
+          project_id: SYSTEM_LOG_PROJECT_ID,
+          title: action,
+          description: targetId || '',
+          assigned_user_id: userId,
+          status: 'done', // Logi są zawsze "zakończone"
+          priority: 'low'
         }]);
       
       if (error) console.error('Błąd logowania aktywności:', error);
@@ -19,27 +25,30 @@ export class ActivityService {
   }
 
   // POBIERANIE HISTORII
-  async getHistory(supabase: SupabaseClient) {
+  async getHistory(_ignored: any) {
     try {
-      // Pobieramy aktywności
-      const { data, error } = await supabase
-        .from('activities')
+      const { data, error } = await supabaseAdmin
+        .from('tasks')
         .select('*')
+        .eq('project_id', SYSTEM_LOG_PROJECT_ID)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
 
-      // Pobieramy emaile użytkowników osobno (bezpieczniejszy join manualny)
-      const userIds = Array.from(new Set(data.map(a => a.user_id)));
-      const { data: profiles } = await supabase
+      // Pobieramy emaile użytkowników
+      const userIds = Array.from(new Set(data.map(a => a.assigned_user_id)));
+      const { data: profiles } = await supabaseAdmin
         .from('profiles')
         .select('id, email')
         .in('id', userIds);
 
       const historyWithProfiles = data.map(act => ({
-        ...act,
-        profiles: profiles?.find(p => p.id === act.user_id) || { email: 'System' }
+        id: act.id,
+        action: act.title,
+        target_id: act.description,
+        created_at: act.created_at,
+        profiles: profiles?.find(p => p.id === act.assigned_user_id) || { email: 'System' }
       }));
 
       return historyWithProfiles;

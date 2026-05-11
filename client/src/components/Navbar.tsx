@@ -1,10 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { LogOut, FolderKanban, Users, LayoutDashboard } from 'lucide-react';
+import { LogOut, FolderKanban, Moon, Sun } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
+  const [isDark, setIsDark] = useState(localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark-theme');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark-theme');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -25,6 +36,13 @@ const Navbar: React.FC = () => {
       </div>
 
       <div className="navbar-actions">
+        <button 
+          className="theme-toggle-btn" 
+          onClick={() => setIsDark(!isDark)}
+          title="Przełącz tryb"
+        >
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
         <button onClick={handleLogout} className="btn-logout">
           <LogOut size={18} />
           <span>Wyloguj</span>

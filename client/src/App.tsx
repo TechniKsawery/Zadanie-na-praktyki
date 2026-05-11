@@ -11,6 +11,7 @@ import Navbar from './components/Navbar';
 import { SocketProvider } from './context/SocketContext';
 import { Toaster } from 'react-hot-toast';
 import ChatSidebar from './components/ChatSidebar';
+import MainLayout from './layouts/MainLayout';
 
 function App() {
   // TU TRZYMAMY INFORMACJĘ, CZY KTOŚ JEST ZALOGOWANY (SESJA)
@@ -40,22 +41,15 @@ function App() {
     <SocketProvider userId={session?.user?.id}>
       <BrowserRouter>
         <Toaster />
-        {/* TU POKAZUJEMY NAWIGACJĘ I CZAT TYLKO WTEDY, GDY KTOŚ JEST ZALOGOWANY */}
-        {session && <Navbar />}
-        {session && <ChatSidebar />}
-        
         <Routes>
-          {/* TRASY PUBLICZNE */}
           <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/projects" />} />
           <Route path="/register" element={!session ? <RegisterPage /> : <Navigate to="/projects" />} />
 
-          {/* TRASY CHRONIONE */}
-          <Route path="/projects" element={session ? <ProjectsPage /> : <Navigate to="/login" />} />
-          <Route path="/projects/:projectId" element={session ? <KanbanPage /> : <Navigate to="/login" />} />
-          <Route path="/teams" element={session ? <TeamsPage /> : <Navigate to="/login" />} />
-          <Route path="/dashboard" element={session ? <DashboardPage /> : <Navigate to="/login" />} />
+          <Route path="/projects" element={session ? <MainLayout><ProjectsPage /></MainLayout> : <Navigate to="/login" />} />
+          <Route path="/projects/:projectId" element={session ? <MainLayout><KanbanPage /></MainLayout> : <Navigate to="/login" />} />
+          <Route path="/teams" element={session ? <MainLayout><TeamsPage /></MainLayout> : <Navigate to="/login" />} />
+          <Route path="/dashboard" element={session ? <MainLayout><DashboardPage /></MainLayout> : <Navigate to="/login" />} />
 
-          {/* DOMYŚLNE PRZEKIEROWANIE */}
           <Route path="/" element={<Navigate to={session ? "/projects" : "/login"} />} />
         </Routes>
       </BrowserRouter>

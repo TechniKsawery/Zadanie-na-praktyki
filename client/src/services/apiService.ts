@@ -46,6 +46,12 @@ export const taskService = {
   deleteTask: (taskId: string) => api.delete(`/tasks/${taskId}`).then(res => res.data),
 };
 
+// --- SERWIS KOMENTARZY (ETAP 4) ---
+export const commentService = {
+  getComments: (taskId: string) => api.get(`/tasks/${taskId}/comments`).then(res => res.data),
+  addComment: (taskId: string, content: string) => api.post(`/tasks/${taskId}/comments`, { content }).then(res => res.data),
+};
+
 // --- SERWIS ZESPOŁÓW (ETAP 4) ---
 export const teamService = {
   getTeams: () => api.get('/teams').then(res => res.data),

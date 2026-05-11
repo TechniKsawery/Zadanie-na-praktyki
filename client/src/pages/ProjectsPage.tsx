@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { projectService } from '../services/apiService';
 import { Link } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('user');
+  const [userEmail, setUserEmail] = useState<string>('');
   
   // Stan formularza (dodawanie i edycja)
   const [name, setName] = useState('');
@@ -12,13 +16,33 @@ export default function ProjectsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProjects();
+    const init = async () => {
+      await fetchUserInfo();
+      await loadProjects();
+    };
+    init();
   }, []);
+
+  const fetchUserInfo = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || '');
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        if (profile) setUserRole(profile.role);
+      }
+    } catch (err) {
+      console.error("Error fetching user info", err);
+    } finally {
+      setRoleLoading(false);
+    }
+  };
 
   const loadProjects = async () => {
     try {
       const data = await projectService.getProjects();
-      setProjects(data);
+      const filtered = data.filter((p: any) => p.id !== '00000000-0000-0000-0000-000000000000');
+      setProjects(filtered);
     } catch (err) {
       console.error("Błąd ładowania projektów", err);
     } finally {
@@ -65,38 +89,41 @@ export default function ProjectsPage() {
   return (
     <div className="container fade-in">
       <h1>Moje Projekty</h1>
+      {roleLoading && <p>Sprawdzanie uprawnień...</p>}
 
-      {/* FORMULARZ (DODAWANIE / EDYCJA) */}
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3>{editingId ? 'Edytuj Projekt' : 'Nowy Projekt'}</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <input 
-              value={name} 
-              onChange={e => setName(e.target.value)} 
-              placeholder="Nazwa projektu" 
-              required 
-            />
-          </div>
-          <div className="input-group">
-            <input 
-              value={description} 
-              onChange={e => setDescription(e.target.value)} 
-              placeholder="Opis (opcjonalnie)" 
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button type="submit" className="btn btn-primary">
-              {editingId ? 'Zapisz zmiany' : 'Dodaj Projekt'}
-            </button>
-            {editingId && (
-              <button type="button" className="btn btn-secondary" onClick={() => { setEditingId(null); setName(''); setDescription(''); }}>
-                Anuluj
+      {/* FORMULARZ (DODAWANIE / EDYCJA) - DOSTĘPNY DLA WSZYSTKICH DLA CELÓW TESTOWYCH */}
+      {!roleLoading && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>{editingId ? 'Edytuj Projekt' : 'Nowy Projekt'}</h3>
+          <form onSubmit={handleSubmit}>
+            <div className="input-group">
+              <input 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+                placeholder="Nazwa projektu" 
+                required 
+              />
+            </div>
+            <div className="input-group">
+              <input 
+                value={description} 
+                onChange={e => setDescription(e.target.value)} 
+                placeholder="Opis (opcjonalnie)" 
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button type="submit" className="btn btn-primary">
+                {editingId ? 'Zapisz zmiany' : 'Dodaj Projekt'}
               </button>
-            )}
-          </div>
-        </form>
-      </div>
+              {editingId && (
+                <button type="button" className="btn btn-secondary" onClick={() => { setEditingId(null); setName(''); setDescription(''); }}>
+                  Anuluj
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Lista projektów */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
@@ -109,8 +136,14 @@ export default function ProjectsPage() {
             </div>
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <Link to={`/projects/${p.id}`} className="btn btn-secondary" style={{ flex: '1', textAlign: 'center', textDecoration: 'none' }}>Otwórz Tablicę</Link>
-              <button onClick={() => handleEditClick(p)} style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '8px' }}>Edytuj</button>
-              <button onClick={() => handleDelete(p.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer' }}>Usuń</button>
+              
+              {/* TYLKO ADMIN I MODERATOR LUB AUDYTOR MOGĄ EDYTOWAĆ/USUWAĆ */}
+              {!roleLoading && (
+                <>
+                  <button onClick={() => handleEditClick(p)} style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '8px' }}>Edytuj</button>
+                  <button onClick={() => handleDelete(p.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer' }}>Usuń</button>
+                </>
+              )}
             </div>
           </div>
         ))}
