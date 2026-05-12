@@ -85,6 +85,7 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+
       <div className="charts-container mt-12">
         <div className="chart-box card">
           <h3>Statusy Zadań (Realne dane)</h3>

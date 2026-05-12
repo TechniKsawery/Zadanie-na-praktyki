@@ -11,6 +11,7 @@ import teamRoutes from './routes/teamRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import activityRoutes from './routes/activityRoutes';
 import userRoutes from './routes/userRoutes';
+import messageRoutes from './routes/messageRoutes';
 
 const app = express();
 const httpServer = createServer(app); // TWORZYMY SERWER HTTP DLA SOCKET.IO
@@ -62,6 +63,7 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/messages', messageRoutes);
 
 app.get('/', (req, res) => {
   res.send('API Mini Jira SaaS (Etap 4) działa!');

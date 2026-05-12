@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { CommentService } from '../services/commentService';
 import { ActivityService } from '../services/activityService';
+import { supabaseAdmin } from '../config/supabase';
 
 const commentService = new CommentService();
 
@@ -26,6 +27,34 @@ export class CommentController {
       // Log activity
       const supabase = (req as any).supabase;
       await ActivityService.log(supabase, userId, `skomentował zadanie`, taskId as string);
+
+      const io = (req as any).io;
+      if (io) {
+        const { data: task } = await supabaseAdmin
+          .from('tasks')
+          .select('assigned_to, projects(team_id)')
+          .eq('id', taskId)
+          .single();
+
+        const taskRow = task as any;
+        const projectTeamId = Array.isArray(taskRow?.projects)
+          ? taskRow?.projects?.[0]?.team_id
+          : taskRow?.projects?.team_id;
+        const teamId = projectTeamId || null;
+        if (teamId) {
+          io.to(`team_${teamId}`).emit('receive_notification', {
+            title: 'Komentarz',
+            content: 'Dodano nowy komentarz do zadania.'
+          });
+        }
+
+        if (task?.assigned_to) {
+          io.to(`user_${task.assigned_to}`).emit('receive_notification', {
+            title: 'Komentarz',
+            content: 'Dodano komentarz do Twojego zadania.'
+          });
+        }
+      }
 
       res.status(201).json(newComment);
     } catch (err: any) {

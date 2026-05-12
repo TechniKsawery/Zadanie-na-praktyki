@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { taskService, projectService, uploadService, commentService } from '../services/apiService';
 import { Paperclip, MessageSquare, Trash2, Send } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+import toast from 'react-hot-toast';
 
 export default function KanbanPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Pola formularza
@@ -25,6 +28,8 @@ export default function KanbanPage() {
   // TU POBIERAMY DZISIEJSZĄ DATĘ W FORMACIE RRRR-MM-DD
   const today = new Date().toISOString().split('T')[0];
 
+  const [userRole, setUserRole] = useState<string>('user');
+  
   useEffect(() => {
     loadData();
   }, [projectId]);
@@ -32,12 +37,32 @@ export default function KanbanPage() {
   const loadData = async () => {
     if (!projectId) return;
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user?.id).single();
+      if (profile) setUserRole(profile.role);
+
       const [pData, tData] = await Promise.all([
         projectService.getProject(projectId),
         taskService.getTasks(projectId)
       ]);
       setProject(pData);
       setTasks(tData);
+
+      // Jeśli projekt ma przypisany zespół, pobieramy jego członków
+      if (pData.team_id) {
+        const { teamService } = await import('../services/apiService');
+        const members = await teamService.getMembers(pData.team_id);
+        const accepted = (members || []).filter((m: any) => m.status === 'accepted');
+        setTeamMembers(accepted);
+        setNewTaskAssigned('');
+      } else {
+        // Jeśli nie ma zespołu, pozwalamy przypisać zadanie tylko twórcy (lub zostawić puste)
+        setTeamMembers([{
+          user_id: pData.owner_id,
+          profiles: { email: 'Ty (Właściciel)', role: 'owner' }
+        }]);
+        setNewTaskAssigned(pData.owner_id);
+      }
     } catch (err) {
       console.error("Błąd ładowania danych", err);
     } finally {
@@ -49,6 +74,11 @@ export default function KanbanPage() {
     e.preventDefault();
     if (!projectId || !newTaskTitle.trim()) return;
 
+    if (!newTaskAssigned) {
+      alert('Wybierz osobe z listy.');
+      return;
+    }
+
     if (newTaskDeadline && newTaskDeadline < today) {
       alert("Termin nie może być datą z przeszłości!");
       return;
@@ -59,7 +89,7 @@ export default function KanbanPage() {
         title: newTaskTitle, 
         description: newTaskDescription,
         status: 'todo',
-        assigned_to_name: newTaskAssigned,
+        assigned_to: newTaskAssigned,
         priority: newTaskPriority,
         deadline: newTaskDeadline || null
       });
@@ -148,6 +178,26 @@ export default function KanbanPage() {
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
   const doneTasks = tasks.filter(t => t.status === 'done');
 
+  const approveTask = async (taskId: string) => {
+    try {
+      await taskService.approveTask(taskId);
+      toast.success('Zadanie zatwierdzone!');
+      loadData();
+    } catch (err) {
+      toast.error('Błąd zatwierdzania');
+    }
+  };
+
+  const approveReassignment = async (taskId: string) => {
+    try {
+      await taskService.approveReassignment(taskId);
+      toast.success('Zmiana osoby zatwierdzona!');
+      loadData();
+    } catch (err) {
+      toast.error('Błąd zatwierdzania zmiany');
+    }
+  };
+
   return (
     <div className="container fade-in" style={{ maxWidth: '1200px' }}>
       <button onClick={() => navigate('/projects')} className="btn btn-secondary" style={{ marginBottom: '1rem' }}>
@@ -176,7 +226,19 @@ export default function KanbanPage() {
           </div>
           <div className="input-group">
             <label>Osoba przypisana</label>
-            <input value={newTaskAssigned} onChange={e => setNewTaskAssigned(e.target.value)} placeholder="Kto ma to zrobić?" />
+            <select 
+              value={newTaskAssigned} 
+              onChange={e => setNewTaskAssigned(e.target.value)}
+              required
+              style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-color)' }}
+            >
+              <option value="" disabled>Wybierz czlonka zespolu...</option>
+              {(teamMembers || []).map((m: any) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {(m.profiles?.full_name || m.profiles?.email)} ({m.profiles?.role || 'user'})
+                </option>
+              ))}
+            </select>
           </div>
           <div className="input-group">
             <label>Priorytet</label>
@@ -214,12 +276,31 @@ export default function KanbanPage() {
                   <span className={`priority-badge ${t.priority}`}>{t.priority}</span>
                 </div>
                 {t.description && <p className="task-desc">{t.description}</p>}
+                
+                {t.is_approved === false && (
+                  <div style={{ background: '#fff3cd', color: '#856404', padding: '0.5rem', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                    ⚠️ Oczekiwanie na zatwierdzenie zadania
+                    {['root', 'admin', 'moderator'].includes(userRole) && (
+                      <button onClick={() => approveTask(t.id)} className="btn btn-primary-mini" style={{ width: '100%', marginTop: '0.5rem' }}>Zatwierdź</button>
+                    )}
+                  </div>
+                )}
+
+                {t.pending_assignee_name && (
+                  <div style={{ background: '#d1ecf1', color: '#0c5460', padding: '0.5rem', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                    🔄 Prośba o przypisanie: {t.pending_assignee_name}
+                    {['root', 'admin', 'moderator'].includes(userRole) && (
+                      <button onClick={() => approveReassignment(t.id)} className="btn btn-secondary-mini" style={{ width: '100%', marginTop: '0.5rem' }}>Zatwierdź zmianę</button>
+                    )}
+                  </div>
+                )}
+
                 {t.assigned_to_name && <p className="task-assignee">👤 {t.assigned_to_name}</p>}
                 {t.deadline && <p className="task-deadline">📅 {new Date(t.deadline).toLocaleDateString()}</p>}
                 
                 <div className="task-actions">
-                  {col.prevStatus && <button onClick={() => updateStatus(t.id, col.prevStatus!)} className="btn-mini">{col.prevLabel}</button>}
-                  {col.nextStatus && <button onClick={() => updateStatus(t.id, col.nextStatus!)} className="btn-mini btn-primary-mini">{col.nextLabel}</button>}
+                  {(col.prevStatus && t.is_approved !== false) && <button onClick={() => updateStatus(t.id, col.prevStatus!)} className="btn-mini">{col.prevLabel}</button>}
+                  {(col.nextStatus && t.is_approved !== false) && <button onClick={() => updateStatus(t.id, col.nextStatus!)} className="btn-mini btn-primary-mini">{col.nextLabel}</button>}
                   
                   <label className="btn-mini btn-icon" title="Załącz plik">
                     <Paperclip size={14} />
@@ -242,7 +323,9 @@ export default function KanbanPage() {
                     <div className="comments-list">
                       {comments.map((c, i) => (
                         <div key={i} className="comment-item">
-                          <span className="comment-user">{c.profiles?.email.split('@')[0]}:</span>
+                          <span className="comment-user">
+                            {c.profiles?.full_name || c.profiles?.email?.split('@')[0]}:
+                          </span>
                           <span className="comment-content">{c.content}</span>
                         </div>
                       ))}

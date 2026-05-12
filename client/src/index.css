@@ -21,6 +21,9 @@ SYSTEM STYLÓW (CSS)
   --radius: 12px;
   --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --border: rgba(0, 0, 0, 0.1);
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --link: #4f46e5;
 }
 
 /* --- DARK THEME --- */
@@ -36,6 +39,9 @@ SYSTEM STYLÓW (CSS)
   --success: #34d399;
   --border: rgba(255, 255, 255, 0.1);
   --shadow: 0 4px 20px rgba(0,0,0,0.4);
+  --input-bg: #0f172a;
+  --input-border: rgba(148, 163, 184, 0.4);
+  --link: #a5b4fc;
 }
 
 /* Resetowanie domyślnych marginesów przeglądarki */
@@ -69,7 +75,7 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border);
 }
 
 /* PRZYCISKI */
@@ -108,15 +114,25 @@ input {
   width: 100%;
   padding: 0.75rem;
   border-radius: var(--radius);
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--input-border);
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s;
+  background: var(--input-bg);
+  color: var(--text-main);
 }
 
 input:focus {
   border-color: var(--primary); /* Zmiana koloru ramki po kliknięciu */
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+a {
+  color: var(--link);
+}
+
+a:hover {
+  color: var(--primary-hover);
 }
 
 /* ALERTY (Powiadomienia o sukcesie/błędzie) */
@@ -155,7 +171,7 @@ input:focus {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 2rem;
-  background: white;
+  background: var(--white);
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
   margin-bottom: 2rem;
   position: sticky;
@@ -242,7 +258,7 @@ input:focus {
   right: 0;
   width: 300px;
   height: 400px;
-  background: white;
+  background: var(--white);
   border-radius: var(--radius);
   box-shadow: 0 5px 25px rgba(0,0,0,0.2);
   display: flex;
@@ -271,7 +287,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #f9fafb;
+  background: var(--bg-gradient);
 }
 
 .message {
@@ -301,13 +317,16 @@ input:focus {
   border-top: 1px solid #eee;
   display: flex;
   gap: 8px;
-  background: white;
+  background: var(--white);
 }
 
 .chat-input input {
   flex: 1;
   padding: 6px;
   font-size: 0.9rem;
+  background: var(--input-bg);
+  color: var(--text-main);
+  border: 1px solid var(--input-border);
 }
 
 .chat-input button {
@@ -619,8 +638,8 @@ input:focus {
   width: 100%; 
   padding: 0.8rem; 
   border-radius: 8px; 
-  border: 1px solid #d1d5db; 
-  background: var(--white); 
+  border: 1px solid var(--input-border); 
+  background: var(--input-bg); 
   color: var(--text-main);
   min-height: 80px;
   outline: none;
@@ -643,4 +662,24 @@ input:focus {
 
 .chat-messages {
   background: var(--bg-gradient);
+}
+
+.dark-theme .bg-gray-100 {
+  background-color: rgba(15, 23, 42, 0.9);
+}
+
+.dark-theme .bg-gray-50 {
+  background-color: rgba(148, 163, 184, 0.12);
+}
+
+.dark-theme .text-gray-800 {
+  color: #e2e8f0;
+}
+
+.dark-theme .message-bubble {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.dark-theme .hover\:bg-gray-50:hover {
+  background-color: rgba(148, 163, 184, 0.18);
 }

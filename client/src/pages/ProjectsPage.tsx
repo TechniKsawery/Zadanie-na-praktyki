@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { projectService } from '../services/apiService';
+import { projectService, teamService } from '../services/apiService';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
@@ -8,16 +8,22 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [roleLoading, setRoleLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('user');
-  const [userEmail, setUserEmail] = useState<string>('');
-  
+  const [userId, setUserId] = useState<string>('');
+
   // Stan formularza (dodawanie i edycja)
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  // brakujące stany używane w JSX — zapobiegają błędom referencji
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [userTeams, setUserTeams] = useState<any[]>([]);
+
+  const userTeamIds = new Set(userTeams.map((t) => t.id));
 
   useEffect(() => {
     const init = async () => {
       await fetchUserInfo();
+      await loadUserTeams();
       await loadProjects();
     };
     init();
@@ -27,7 +33,7 @@ export default function ProjectsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setUserEmail(user.email || '');
+        setUserId(user.id);
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (profile) setUserRole(profile.role);
       }
@@ -35,6 +41,15 @@ export default function ProjectsPage() {
       console.error("Error fetching user info", err);
     } finally {
       setRoleLoading(false);
+    }
+  };
+
+  const loadUserTeams = async () => {
+    try {
+      const teams = await teamService.getTeams();
+      setUserTeams(teams);
+    } catch (err) {
+      console.error("Błąd ładowania zespołów", err);
     }
   };
 
@@ -55,14 +70,19 @@ export default function ProjectsPage() {
     try {
       if (editingId) {
         // EDYCJA ISTNIEJĄCEGO PROJEKTU
-        await projectService.updateProject(editingId, { name, description });
+        await projectService.updateProject(editingId, { name, description, team_id: selectedTeamId || null });
         setEditingId(null);
       } else {
         // TWORZENIE NOWEGO PROJEKTU
-        await projectService.createProject({ name, description });
+        await projectService.createProject({
+          name,
+          description,
+          team_id: selectedTeamId || undefined
+        });
       }
       setName('');
       setDescription('');
+      setSelectedTeamId('');
       loadProjects();
     } catch (err) {
       alert("Błąd zapisu projektu");
@@ -97,19 +117,32 @@ export default function ProjectsPage() {
           <h3>{editingId ? 'Edytuj Projekt' : 'Nowy Projekt'}</h3>
           <form onSubmit={handleSubmit}>
             <div className="input-group">
-              <input 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder="Nazwa projektu" 
-                required 
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nazwa projektu"
+                required
               />
             </div>
             <div className="input-group">
-              <input 
-                value={description} 
-                onChange={e => setDescription(e.target.value)} 
-                placeholder="Opis (opcjonalnie)" 
+              <input
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Opis (opcjonalnie)"
               />
+            </div>
+            <div className="input-group">
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Przypisz do zespołu (opcjonalnie)</label>
+              <select
+                value={selectedTeamId}
+                onChange={e => setSelectedTeamId(e.target.value)}
+                style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-color)' }}
+              >
+                <option value="">Brak zespołu (prywatny)</option>
+                {userTeams.map(team => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button type="submit" className="btn btn-primary">
@@ -136,12 +169,23 @@ export default function ProjectsPage() {
             </div>
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <Link to={`/projects/${p.id}`} className="btn btn-secondary" style={{ flex: '1', textAlign: 'center', textDecoration: 'none' }}>Otwórz Tablicę</Link>
-              
+
               {/* TYLKO ADMIN I MODERATOR LUB AUDYTOR MOGĄ EDYTOWAĆ/USUWAĆ */}
               {!roleLoading && (
                 <>
-                  <button onClick={() => handleEditClick(p)} style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '8px' }}>Edytuj</button>
-                  <button onClick={() => handleDelete(p.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer' }}>Usuń</button>
+                  {/* Edycja: Root, Admin, Moderator (swoje) */}
+                  {(userRole === 'root' || 
+                    (userRole === 'admin' && p.owner_id === userId) || 
+                    (userRole === 'moderator' && (p.owner_id === userId || (p.team_id && userTeamIds.has(p.team_id))))) && (
+                    <button onClick={() => handleEditClick(p)} style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '8px' }}>Edytuj</button>
+                  )}
+                  
+                  {/* Usuwanie: Root, Admin, Moderator (swoje) */}
+                  {(userRole === 'root' || 
+                    (userRole === 'admin' && p.owner_id === userId) || 
+                    (userRole === 'moderator' && (p.owner_id === userId || (p.team_id && userTeamIds.has(p.team_id))))) && (
+                    <button onClick={() => handleDelete(p.id)} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer' }}>Usuń</button>
+                  )}
                 </>
               )}
             </div>

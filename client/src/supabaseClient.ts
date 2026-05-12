@@ -17,3 +17,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // 3. Zapisywać nowe notatki
 // Używamy 'as any', aby TypeScript nie krzyczał o brakujące typy - to ułatwia naukę na początku.
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '') as any;
+export const SUPABASE_CONFIGURED = !!(supabaseUrl && supabaseAnonKey);

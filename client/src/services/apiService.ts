@@ -29,7 +29,7 @@ export const projectService = {
   getProject: (id: string) => api.get(`/projects/${id}`).then(res => res.data),
   
   // TU WYSYŁAMY DANE NOWEGO PROJEKTU DO SERWERA
-  createProject: (data: { name: string; description: string }) => api.post('/projects', data).then(res => res.data),
+  createProject: (projectData: { name: string; description: string; team_id?: string }) => api.post('/projects', projectData).then(res => res.data),
   
   // TU AKTUALIZUJEMY PROJEKT
   updateProject: (id: string, data: any) => api.patch(`/projects/${id}`, data).then(res => res.data),
@@ -44,6 +44,8 @@ export const taskService = {
   createTask: (projectId: string, data: any) => api.post(`/projects/${projectId}/tasks`, data).then(res => res.data),
   updateTask: (taskId: string, data: any) => api.patch(`/tasks/${taskId}`, data).then(res => res.data),
   deleteTask: (taskId: string) => api.delete(`/tasks/${taskId}`).then(res => res.data),
+  approveTask: (taskId: string) => api.post(`/tasks/${taskId}/approve`).then(res => res.data),
+  approveReassignment: (taskId: string) => api.post(`/tasks/${taskId}/approve-reassignment`).then(res => res.data),
 };
 
 // --- SERWIS KOMENTARZY (ETAP 4) ---
@@ -58,6 +60,8 @@ export const teamService = {
   createTeam: (data: { name: string }) => api.post('/teams', data).then(res => res.data),
   inviteMember: (teamId: string, email: string) => api.post(`/teams/${teamId}/invite`, { email }).then(res => res.data),
   getMembers: (teamId: string) => api.get(`/teams/${teamId}/members`).then(res => res.data),
+  getInvitations: () => api.get('/teams/invitations').then(res => res.data),
+  acceptInvitation: (teamId: string) => api.post(`/teams/invitations/${teamId}/accept`).then(res => res.data),
 };
 
 export const uploadService = {
@@ -75,12 +79,35 @@ export const userService = {
   getUsers: async () => {
     const response = await api.get('/users');
     return response.data;
+  },
+  getPublicUsers: async () => {
+    const response = await api.get('/users/public');
+    return response.data;
+  },
+  updateRole: async (userId: string, role: string) => {
+    const response = await api.patch(`/users/${userId}/role`, { role });
+    return response.data;
+  },
+  deleteMe: async () => {
+    const response = await api.delete('/users/me');
+    return response.data;
   }
 };
 
 export const activityService = {
   getHistory: async () => {
     const response = await api.get('/activity');
+    return response.data;
+  }
+};
+
+export const messageService = {
+  getGlobalHistory: async () => {
+    const response = await api.get('/messages/global');
+    return response.data;
+  },
+  getPrivateHistory: async (userId: string) => {
+    const response = await api.get(`/messages/private/${userId}`);
     return response.data;
   }
 };

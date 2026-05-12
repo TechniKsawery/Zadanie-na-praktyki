@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject } from 'zod';
+import { ZodSchema, ZodError } from 'zod';
 
 // MIDDLEWARE, KTÓRY SPRAWDZA CZY DANE W req.body ZGADZAJĄ SIĘ ZE SCHEMATEM ZOD
-export const validate = (schema: AnyZodObject) => {
+export const validate = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       await schema.parseAsync(req.body);

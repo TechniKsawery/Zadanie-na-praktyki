@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { MessageSquare, Send, X, Users, Globe, Circle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { userService } from '../services/apiService';
+import { userService, messageService } from '../services/apiService';
+import toast from 'react-hot-toast';
 
 const ChatSidebar: React.FC = () => {
   const { socket } = useSocket();
@@ -12,50 +13,138 @@ const ChatSidebar: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [privateHistory, setPrivateHistory] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [unreadGlobal, setUnreadGlobal] = useState(0);
+  const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
+
+  const resolveDisplayName = (userId?: string, fallbackEmail?: string) => {
+    if (!userId) return fallbackEmail || 'Uzytkownik';
+    if (currentProfile?.id === userId) {
+      return currentProfile?.full_name || currentProfile?.email || 'Uzytkownik';
+    }
+    const match = allUsers.find((u) => u.id === userId);
+    return match?.full_name || match?.email || fallbackEmail || 'Uzytkownik';
+  };
+
+  const resolveRole = (userId?: string) => {
+    if (!userId) return null;
+    if (currentProfile?.id === userId) return currentProfile?.role || null;
+    const match = allUsers.find((u) => u.id === userId);
+    return match?.role || null;
+  };
 
   useEffect(() => {
     const initChat = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
-      
-      const users = await userService.getUsers();
-      setAllUsers(users.filter((u: any) => u.id !== user?.id));
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role')
+          .eq('id', user.id)
+          .single();
+        setCurrentProfile(profile);
+      }
+
+      if (socket && user) {
+        socket.emit('identify', user.id);
+      }
     };
     initChat();
+  }, [socket]);
 
-    if (socket) {
-      socket.on('new_message', (msg) => {
-        if (!msg.receiver_id) {
-          setChatHistory((prev) => [...prev, msg]);
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (msg: any) => {
+      if (!msg.receiver_id) {
+        setChatHistory((prev) => [...prev, msg]);
+        if (!isOpen || activeTab !== 'global') {
+          setUnreadGlobal((prev) => prev + 1);
+          toast.success(`Nowa wiadomosc: ${resolveDisplayName(msg.sender_id, msg.sender_email)}`);
         }
-      });
+      }
+    };
 
-      socket.on('new_private_message', (msg) => {
-        setPrivateHistory((prev) => [...prev, msg]);
-      });
+    const handleNewPrivateMessage = (msg: any) => {
+      setPrivateHistory((prev) => [...prev, msg]);
+      const otherUserId = msg.sender_id === currentUser?.id ? msg.receiver_id : msg.sender_id;
+      const isCurrentDM = selectedUser?.id && otherUserId === selectedUser.id;
+      if (!isOpen || activeTab !== 'users' || !isCurrentDM) {
+        if (otherUserId) {
+          setUnreadByUser((prev) => ({
+            ...prev,
+            [otherUserId]: (prev[otherUserId] || 0) + 1
+          }));
+        }
+        toast.success(`Nowa wiadomosc prywatna: ${resolveDisplayName(msg.sender_id, msg.sender_email)}`);
+      }
+    };
 
-      socket.on('online_users_list', (users: string[]) => {
-        setOnlineUsers(users);
-      });
+    const handleOnlineUsers = (onlineIds: string[]) => {
+      setOnlineUsers(onlineIds);
+    };
 
-      socket.on('user_status_change', ({ userId, status }: { userId: string, status: 'online' | 'offline' }) => {
-        setOnlineUsers(prev => {
-          if (status === 'online') return Array.from(new Set([...prev, userId]));
-          return prev.filter(id => id !== userId);
-        });
-      });
-    }
+    socket.on('new_message', handleNewMessage);
+    socket.on('new_private_message', handleNewPrivateMessage);
+    socket.on('online_users_list', handleOnlineUsers);
+
+    socket.emit('get_online_users');
 
     return () => {
-      socket?.off('new_message');
-      socket?.off('new_private_message');
-      socket?.off('online_users_list');
-      socket?.off('user_status_change');
+      socket.off('new_message', handleNewMessage);
+      socket.off('new_private_message', handleNewPrivateMessage);
+      socket.off('online_users_list', handleOnlineUsers);
     };
-  }, [socket]);
+  }, [socket, isOpen, activeTab, selectedUser, currentUser?.id, currentProfile]);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!isOpen) return;
+      if (activeTab === 'global') {
+        const history = await messageService.getGlobalHistory();
+        setChatHistory(Array.isArray(history) ? history : []);
+      }
+      if (activeTab === 'users' && selectedUser?.id) {
+        const history = await messageService.getPrivateHistory(selectedUser.id);
+        setPrivateHistory(Array.isArray(history) ? history : []);
+      }
+    };
+    loadHistory();
+  }, [isOpen, activeTab, selectedUser?.id]);
+
+  useEffect(() => {
+    const refreshUsers = async () => {
+      if (!isOpen || activeTab !== 'users') return;
+      try {
+        const users = await userService.getPublicUsers();
+        setAllUsers(users.filter((u: any) => u.id !== currentUser?.id));
+      } catch (err: any) {
+        toast.error(err?.response?.data?.error || 'Blad odswiezania listy uzytkownikow');
+      }
+    };
+    refreshUsers();
+  }, [isOpen, activeTab, currentUser?.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab === 'global') {
+      setUnreadGlobal(0);
+    }
+    if (activeTab === 'users' && selectedUser?.id) {
+      setUnreadByUser((prev) => {
+        if (!prev[selectedUser.id]) return prev;
+        const next = { ...prev };
+        delete next[selectedUser.id];
+        return next;
+      });
+    }
+  }, [isOpen, activeTab, selectedUser?.id]);
+
+  const totalUnread = unreadGlobal + Object.values(unreadByUser).reduce((sum, v) => sum + v, 0);
 
   const sendMessage = async () => {
     if (!message.trim() || !socket) return;
@@ -92,15 +181,36 @@ const ChatSidebar: React.FC = () => {
 
   return (
     <div className={`chat-sidebar ${isOpen ? 'open' : ''}`}>
-      <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)} title="Otwórz czat">
+      <button className="chat-toggle" onClick={() => setIsOpen(!isOpen)} title="Otwórz czat" style={{ position: 'relative' }}>
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        {totalUnread > 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '-6px',
+              right: '-6px',
+              minWidth: '18px',
+              height: '18px',
+              padding: '0 5px',
+              borderRadius: '999px',
+              background: 'var(--error)',
+              color: '#fff',
+              fontSize: '0.7rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {totalUnread > 99 ? '99+' : totalUnread}
+          </span>
+        )}
       </button>
 
       {isOpen && (
         <div className="chat-window">
           <div className="chat-header flex justify-between items-center p-4">
             <h3 className="text-lg font-bold" style={{ margin: 0 }}>
-              {selectedUser ? `DM: ${selectedUser.email.split('@')[0]}` : 'Czat Ogólny'}
+              {selectedUser ? `DM: ${selectedUser.full_name || selectedUser.email?.split('@')[0]}` : 'Czat Ogólny'}
             </h3>
             <div className="flex gap-2">
               <button 
@@ -129,6 +239,7 @@ const ChatSidebar: React.FC = () => {
                 {allUsers.length === 0 && <p className="text-xs text-center p-4">Brak innych użytkowników</p>}
                 {allUsers.map(user => {
                   const isOnline = onlineUsers.includes(user.id);
+                  const unreadCount = unreadByUser[user.id] || 0;
                   return (
                     <button 
                       key={user.id}
@@ -136,13 +247,40 @@ const ChatSidebar: React.FC = () => {
                       className="w-full text-left p-2 hover:bg-gray-50 rounded flex items-center justify-between mb-1"
                       style={{ border: 'none', background: 'none', cursor: 'pointer' }}
                     >
-                      <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="flex items-center gap-2" style={{ flexWrap: 'nowrap' }}>
                         <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex-shrink-0 flex items-center justify-center text-xs font-bold">
-                          {user.email[0].toUpperCase()}
+                          {(user.full_name || user.email)[0].toUpperCase()}
                         </div>
-                        <span className="text-sm truncate" style={{ color: 'var(--text-main)' }}>{user.email}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                          <span className="text-sm" style={{ color: 'var(--text-main)', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                            {user.full_name || user.email}
+                          </span>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                            {user.role || 'user'}
+                          </span>
+                        </div>
                       </div>
-                      <Circle size={10} fill={isOnline ? "#10b981" : "transparent"} color={isOnline ? "#10b981" : "#cbd5e1"} />
+                      <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                          <span
+                            style={{
+                              minWidth: '18px',
+                              height: '18px',
+                              padding: '0 5px',
+                              borderRadius: '999px',
+                              background: 'var(--error)',
+                              color: '#fff',
+                              fontSize: '0.7rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                        <Circle size={10} fill={isOnline ? "#10b981" : "transparent"} color={isOnline ? "#10b981" : "#cbd5e1"} />
+                      </div>
                     </button>
                   );
                 })}
@@ -157,8 +295,11 @@ const ChatSidebar: React.FC = () => {
                     <div className={`message-bubble text-sm ${
                       msg.sender_id === currentUser?.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {!selectedUser && msg.sender_id !== currentUser?.id && (
-                        <div className="text-xs font-bold opacity-75 mb-1">{msg.sender_email?.split('@')[0]}</div>
+                      {msg.sender_id !== currentUser?.id && (
+                        <div className="text-xs font-bold opacity-75 mb-1">
+                          {resolveDisplayName(msg.sender_id, msg.sender_email)}
+                          {resolveRole(msg.sender_id) ? ` (${resolveRole(msg.sender_id)})` : ''}
+                        </div>
                       )}
                       <p style={{ margin: 0 }}>{msg.content}</p>
                     </div>

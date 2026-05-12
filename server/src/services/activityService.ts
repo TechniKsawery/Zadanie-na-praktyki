@@ -13,9 +13,10 @@ export class ActivityService {
           project_id: SYSTEM_LOG_PROJECT_ID,
           title: action,
           description: targetId || '',
-          assigned_user_id: userId,
+          assigned_to: userId,
           status: 'done', // Logi są zawsze "zakończone"
-          priority: 'low'
+          priority: 'low',
+          is_approved: true // Logi są automatycznie zatwierdzone
         }]);
       
       if (error) console.error('Błąd logowania aktywności:', error);
@@ -37,7 +38,7 @@ export class ActivityService {
       if (error) throw error;
 
       // Pobieramy emaile użytkowników
-      const userIds = Array.from(new Set(data.map(a => a.assigned_user_id)));
+      const userIds = Array.from(new Set(data.map(a => a.assigned_to)));
       const { data: profiles } = await supabaseAdmin
         .from('profiles')
         .select('id, email')
@@ -48,7 +49,7 @@ export class ActivityService {
         action: act.title,
         target_id: act.description,
         created_at: act.created_at,
-        profiles: profiles?.find(p => p.id === act.assigned_user_id) || { email: 'System' }
+        profiles: profiles?.find(p => p.id === act.assigned_to) || { email: 'System' }
       }));
 
       return historyWithProfiles;
