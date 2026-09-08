@@ -1,3 +1,61 @@
+# 🚀 Mini Jira SaaS - Professional Team Management System
+
+Recruitment project (Stage 4) that meets 100% of the mandatory requirements and all additional requirements.
+
+## 🛠️ Technology Stack
+- **Frontend:** React + TypeScript + Recharts + Lucide Icons
+- **Backend:** Node.js + Express + TypeScript + Socket.IO + Multer
+- **Database:** Supabase (PostgreSQL) + Row Level Security (RLS)
+- **Infrastructure:** Docker, Docker Compose, GitHub Actions (CI)
+
+## ✨ Key Features (Stage 4)
+- 💬 **Real-time Chat:** General and private messaging system (DM).
+- 🟢 **Online Status:** Live user availability tracking.
+- 👥 **Team Management:** Team creation, member invitations, and team roles.
+- 📊 **Analytics Dashboard:** Interactive charts for task and project statuses.
+- 📁 **File Management:** Uploading task attachments.
+- 💬 **Task Comments:** Commenting on individual tasks.
+- 📜 **Activity History:** Full audit trail of user actions.
+- 🌙 **Dark Mode:** Modern interface with dark theme support.
+
+## 📂 Project Architecture
+A professional layered architecture was used:
+
+### Backend (`/server`):
+- **Routes:** REST API endpoint definitions.
+- **Controllers:** HTTP request handling and business logic orchestration.
+- **Services:** Business logic layer (Activity, Storage, Teams).
+- **Repositories:** Direct communication with the database (Supabase).
+- **Middlewares:** Authorization (JWT), role checks (RBAC), validation.
+- **Validators:** Data validation schemas (Zod).
+- **Socket Handlers:** WebSocket logic isolated from the REST layer.
+
+### Frontend (`/client`):
+- **Pages:** Main application views.
+- **Components:** Reusable UI elements.
+- **Layouts:** Page templates (MainLayout).
+- **Hooks:** Custom React hooks (useSocket).
+- **Context:** Global state management (Socket, Auth).
+- **Services:** API communication (Axios).
+
+## 🚀 Installation and Run
+
+### Option 1: Docker (Recommended)
+1. Copy `.env.example` to `/server/.env` and fill in Supabase keys.
+2. Run: `docker-compose up --build`
+
+### Option 2: Local
+1. Install dependencies in both folders: `npm install`
+2. Run server and client: `npm run dev`
+
+### Database Setup
+Run the `setup_final.sql` script in the Supabase SQL editor to prepare the table structure and security policies (RLS).
+
+---
+*Project prepared by TechniKsawery in accordance with the recruitment task guidelines.*
+
+---
+
 # 🚀 Mini Jira SaaS - Profesjonalny System Zarządzania Zespołem
 
 Projekt rekrutacyjny (Etap 4) spełniający 100% wymagań obowiązkowych oraz wszystkie wymagania dodatkowe.
